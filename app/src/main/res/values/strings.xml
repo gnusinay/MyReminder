@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">MyReminder</string>
+    <string name="title_text_title">Title:</string>
+    <string name="date_text_title">Date:</string>
+    <string name="time_text_title">Time:</string>
+    <string name="description_text_title">Description:</string>
+    <string name="save_button_caption">Save</string>
+    <string name="parsingTimeErrorMessage">Can not parse time</string>
+    <string name="parsingDateErrorMessage">Can not parse date</string>
+    <string name="titleEmptyErrorMessage">Field Title is not filled</string>
+    <string name="timeEmptyErrorMessage">Field Time is not filled</string>
+    <string name="dateEmptyErrorMessage">Field Date is not filled</string>
+</resources>
