@@ -1,18 +1,12 @@
 package com.mercury.gnusin.myreminder;
 
 import android.app.Activity;
-import android.app.AlarmManager;
 import android.app.DatePickerDialog;
-import android.app.Notification;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.app.TimePickerDialog;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
-import android.os.Bundle;
+import android.content.SharedPreferences;
+import android.support.v4.content.LocalBroadcastManager;
 import android.text.format.DateFormat;
-import android.util.Log;
 import android.widget.Button;
 import android.widget.DatePicker;
 import android.widget.EditText;
@@ -24,24 +18,16 @@ import org.androidannotations.annotations.Click;
 import org.androidannotations.annotations.EActivity;
 import org.androidannotations.annotations.FocusChange;
 import org.androidannotations.annotations.ViewById;
-import org.androidannotations.annotations.res.StringArrayRes;
 import org.androidannotations.annotations.sharedpreferences.Pref;
-import org.androidannotations.annotations.sharedpreferences.SharedPref;
+import org.androidannotations.api.sharedpreferences.SharedPreferencesHelper;
 
-import java.text.Format;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.GregorianCalendar;
-import java.util.Locale;
-import java.util.TimeZone;
 
 @EActivity(R.layout.a_reminder)
 public class MyReminder extends Activity implements TimePickerDialog.OnTimeSetListener, DatePickerDialog.OnDateSetListener {
-
-    @Pref
-    MyPrefs_ myPrefs;
 
     @ViewById(R.id.title_edit_text)
     EditText titleEditText;
@@ -58,18 +44,19 @@ public class MyReminder extends Activity implements TimePickerDialog.OnTimeSetLi
     @ViewById(R.id.save_button)
     Button saveButton;
 
-    private Reminder reminder;
+    private ReminderStorage reminderStorage;
+
 
     @AfterViews
     void init() {
-        if(myPrefs.hasReminder().get()) {
-            reminder = restoreRemainder();
+        reminderStorage = new ReminderStorage(this);
+        Reminder reminder = reminderStorage.restore();
 
-            titleEditText.setText(reminder.getTitle());
-            dateEditText.setText(reminder.getDate());
-            timeEditText.setText(reminder.getTime());
-            descriptionEditText.setText(reminder.getDescription());
-        }
+        titleEditText.setText(reminder.getTitle());
+        dateEditText.setText(reminder.getDate());
+        timeEditText.setText(reminder.getTime());
+        descriptionEditText.setText(reminder.getDescription());
+
     }
 
     @FocusChange(R.id.date_edit_text)
@@ -139,11 +126,11 @@ public class MyReminder extends Activity implements TimePickerDialog.OnTimeSetLi
         if (titleEditText.getText().toString().isEmpty()) {
             Toast.makeText(this, R.string.titleEmptyErrorMessage, Toast.LENGTH_SHORT).show();
             return;
-        } else if (timeEditText.getText().toString().isEmpty()){
-            Toast.makeText(this, R.string.timeEmptyErrorMessage, Toast.LENGTH_SHORT).show();
-            return;
         } else if (dateEditText.getText().toString().isEmpty()) {
             Toast.makeText(this, R.string.dateEmptyErrorMessage, Toast.LENGTH_SHORT).show();
+            return;
+        } else if (timeEditText.getText().toString().isEmpty()) {
+            Toast.makeText(this, R.string.timeEmptyErrorMessage, Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -153,13 +140,8 @@ public class MyReminder extends Activity implements TimePickerDialog.OnTimeSetLi
         reminder.setTime(timeEditText.getText().toString());
         reminder.setDescription(descriptionEditText.getText().toString());
 
-        retainRemainder(reminder);
-        try {
-            generateNotification(reminder);
-        } catch (ParseException e) {
-            Toast.makeText(this, R.string.parsingDateErrorMessage, Toast.LENGTH_LONG).show();    // TODO
-        }
-
+        reminderStorage.store(reminder);
+        sendBroadcast(new Intent("com.mercury.gnusin.myreminder.CUSTOM_ACTION"));
     }
 
     @Override
@@ -179,40 +161,6 @@ public class MyReminder extends Activity implements TimePickerDialog.OnTimeSetLi
         dateEditText.setText(dateFormat.format(calendar.getTime()));
     }
 
-    private void retainRemainder(Reminder reminder) {
-        myPrefs.hasReminder().put(true);
-        myPrefs.titleReminder().put(reminder.getTitle());
-        myPrefs.dateReminder().put(reminder.getDate());
-        myPrefs.timeReminder().put(reminder.getTime());
-        myPrefs.descriptionReminder().put(reminder.getDescription());
-    }
 
-    private Reminder restoreRemainder() {
-        Reminder reminder = new Reminder();
-        reminder.setTitle(myPrefs.titleReminder().get());
-        reminder.setDate(myPrefs.dateReminder().get());
-        reminder.setTime(myPrefs.timeReminder().get());
-        reminder.setDescription(myPrefs.descriptionReminder().get());
-        return reminder;
-    }
 
-    private void generateNotification(Reminder reminder) throws ParseException {
-        SimpleDateFormat dateFormat = (SimpleDateFormat) DateFormat.getDateFormat(this);
-        SimpleDateFormat timeFormat = (SimpleDateFormat) DateFormat.getTimeFormat(this);
-
-        SimpleDateFormat dateTimeFormat = new SimpleDateFormat(dateFormat.toPattern() + " " + timeFormat.toPattern());
-        Date alarmDate = dateTimeFormat.parse(reminder.getDate() + " " + reminder.getTime());
-
-        Intent broadcastIntent = new Intent(this, AlarmReceiver.class);
-        broadcastIntent.putExtra("title", reminder.getTitle());
-        broadcastIntent.putExtra("description", reminder.getDescription());
-
-        PendingIntent broadcastPendingIntent = PendingIntent.getBroadcast(this, 0, broadcastIntent, PendingIntent.FLAG_CANCEL_CURRENT);
-
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTimeInMillis(alarmDate.getTime());
-
-        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-        alarmManager.set(AlarmManager.RTC_WAKEUP, calendar.getTime().getTime(), broadcastPendingIntent);
-    }
 }
